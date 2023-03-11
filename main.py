@@ -6,8 +6,8 @@ import argparse
 from calibration import CameraCalibration
 from frcwidget import OpencvImageWidget, OpencvVideoWidget
 
-from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel, QDialog, QMessageBox
+from PySide2.QtCore import Qt
+from PySide2.QtWidgets import QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel, QDialog, QMessageBox
 
 
 class JsonModal(QDialog):
@@ -42,7 +42,7 @@ class JsonModal(QDialog):
         layout.addWidget(ok_button)
         dialog.setLayout(layout)
 
-        dialog.exec()
+        dialog.exec_()
         self.close()
 
 
@@ -93,6 +93,8 @@ class CalibrationWidget(QWidget):
     def get_results(self):
         ret, mtx, dist, *_ = self.calibration.calibrate()
 
+        self.camera_preview.set_calibration(mtx, dist)
+
         results_json = {
             'matrix': {
                 'fx': mtx[0, 0],
@@ -112,7 +114,7 @@ class CalibrationWidget(QWidget):
         str_json = json.dumps(results_json, indent=4)
 
         modal = JsonModal(str_json)
-        modal.exec()
+        modal.exec_()
 
 
 class MainWindow(QMainWindow):
@@ -121,7 +123,7 @@ class MainWindow(QMainWindow):
 
         self.setWindowTitle('Camera Calibration')
 
-        self.calibration_widget = CalibrationWidget('chessboard.jpg')
+        self.calibration_widget = CalibrationWidget(src)
         self.setCentralWidget(self.calibration_widget)
 
 
@@ -132,7 +134,9 @@ def main(src=0):
     window.show()
 
     # Start the event loop.
-    app.exec()
+    app.exec_()
+
+    snap = tracemalloc.take_snapshot()
 
 
 if __name__ == '__main__':

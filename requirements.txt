@@ -1,4 +1,4 @@
 opencv-python
 pyperclip
-PySide6
+PySide5
 numpy

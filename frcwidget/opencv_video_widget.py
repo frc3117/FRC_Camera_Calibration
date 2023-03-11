@@ -1,14 +1,15 @@
 import cv2 as cv
 import numpy as np
+import ctypes
 
-from PySide6.QtGui import QImage, QPixmap
-from PySide6.QtWidgets import QLabel
-from PySide6.QtCore import QTimer
+from PySide2.QtGui import QImage, QPixmap
+from PySide2.QtWidgets import QLabel
+from PySide2.QtCore import QTimer, Qt
 
 
 class OpencvImageWidget(QLabel):
     def __init__(self,
-                 resolution: tuple[int, int] = None,
+                 resolution = None,
                  min_height: int = 640,
                  max_height: int = 2040,
                  min_width: int = 640,
@@ -26,58 +27,62 @@ class OpencvImageWidget(QLabel):
 
         self.keep_ratio = True
 
+        self.qpix = None
+
         if self.resolution is not None:
             self.set_image(np.zeros((self.resolution[1], self.resolution[0], 3), dtype=np.uint8))
 
     def set_image(self, img):
-        if self.resolution is None:
-            ratio = img.shape[0] / img.shape[1]
+        ch = ctypes.c_char.from_buffer(img.data, 0)
+        rcount = ctypes.c_long.from_address(id(ch)).value
 
-            old_height = img.shape[0]
-            old_width = img.shape[1]
+        image = QImage(ch, img.shape[1], img.shape[0],
+                       img.strides[0], QImage.Format_RGB888)
+        image = image.scaled(self.resolution[0], self.resolution[1])
+
+        ctypes.c_long.from_address(id(ch)).value = rcount
+
+        if self.qpix is None:
+            self.qpix = QPixmap.fromImage(image)
         else:
-            ratio = img.shape[0] / img.shape[1]
+            self.qpix.convertFromImage(image)
 
-            old_height = self.resolution[1]
-            old_width = self.resolution[0]
-
-        ratio = old_height / old_width
-        new_height = max(min(old_height, self.max_height), self.min_height)
-        new_width = max(min(old_width, self.max_width), self.min_width)
-
-        frame = cv.cvtColor(img, cv.COLOR_BGR2RGB)
-        frame = cv.resize(frame, (new_width, new_height))
-
-        self.resize(new_width, new_height)
-
-        image = QImage(frame, new_width, new_height,
-                       frame.strides[0], QImage.Format_RGB888)
-
-        self.setPixmap(QPixmap.fromImage(image))
+        self.setPixmap(self.qpix)
 
 
 class OpencvVideoWidget(OpencvImageWidget):
     def __init__(self,
                  cap,
-                 resolution: tuple[int, int] = None,
+                 resolution = None,
                  min_height: int = 640,
                  max_height: int = 2040,
                  min_width: int = 640,
                  max_width: int = 2048,
-                 keep_ratio: bool = True
-                 ):
+                 keep_ratio: bool = True,
+                 mtx = None,
+                 dist = None):
         super().__init__(resolution, min_height, max_height, min_width, max_width, keep_ratio)
 
         self.cap = cap
+
+        self.set_calibration(mtx, dist)
 
         self.timer = QTimer()
         self.timer.timeout.connect(self.update)
         self.timer.start(60)
 
-        self.last_frame = None
+        self.last_frame = None    
+
+    def set_calibration(self, mtx, dist):
+        self.mtx = mtx
+        self.dist = dist
 
     def update(self):
         ret, frame = self.cap.read()
         if ret:
-            self.last_frame = frame.copy()
-            self.set_image(frame)
+            if (self.mtx is not None and self.dist is not None):
+                self.last_frame = cv.undistort(frame, self.mtx, self.dist, None, None)
+            else:
+                self.last_frame = frame.copy()
+
+            self.set_image(self.last_frame)

@@ -3,7 +3,7 @@ import numpy as np
 
 
 class CameraCalibration:
-    def __init__(self, square_count: tuple[int, int], size: int = 1):
+    def __init__(self, square_count, size: int = 1):
         self.__square_count__ = (square_count[0] - 1, square_count[1] - 1)
         self.__size__ = size
 
@@ -18,7 +18,7 @@ class CameraCalibration:
         self.__2D_detected_points__ = []
         self.__resolution__ = (0, 0)
 
-    def find_corners(self, img: np.ndarray) -> tuple[bool, np.ndarray, np.ndarray]:
+    def find_corners(self, img: np.ndarray):
         gray = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
 
         success, corners = cv.findChessboardCorners(gray, self.__square_count__, None)
